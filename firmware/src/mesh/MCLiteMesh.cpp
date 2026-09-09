@@ -351,13 +351,16 @@ bool MCLiteMesh::sendControlData(const uint8_t* data, size_t len) {
 
 void MCLiteMesh::onControlDataRecv(mesh::Packet* packet) {
     if (!packet || !_onControlData) return;
-    // SNR is already quarter-dB in the packet header; the companion frame wants
-    // the same encoding, so pass the raw stored value rather than re-scaling
-    // getSNR()'s float back up.
-    _onControlData(packet->payload, packet->payload_len,
-                   (int8_t)(packet->getSNR() * 4),
+    // `_snr` is already the quarter-dB value the companion frame wants, so read it
+    // straight rather than round-tripping through getSNR()'s float. MeshCore's own
+    // repeater does the same when it answers a discovery request ("inbound SNR (x4)",
+    // simple_repeater/MyMesh.cpp:796).
+    // payload_len is uint16_t but caps at MAX_PACKET_PAYLOAD (184), so the narrowing
+    // is safe; make it explicit rather than leave it implicit.
+    _onControlData(packet->payload, (uint8_t)packet->payload_len,
+                   packet->_snr,
                    (int8_t)(_radio ? _radio->getLastRSSI() : 0),
-                   packet->path_len);
+                   (uint8_t)packet->path_len);
 }
 
 bool MCLiteMesh::advertise(const char* name, bool flood) {

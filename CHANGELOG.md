@@ -12,11 +12,10 @@ Targets: **T-Deck Plus** (`mclite-vX.Y.Z.bin`) and **T-Watch Ultra** (`mclite-wa
   returned "Unsupported Command - Please update your companion firmware", which was misleading: the firmware was
   current, it had simply never implemented the command behind that button. It does now, and the answers come
   back to the app.
-- **Your node was invisible to other people's discovery scans.** The same feature has a receiving half that
-  nothing in MCLite handled, so when someone nearby ran Discover Nodes, an MCLite device heard the request and
-  said nothing — with no error anywhere to explain the silence. It now replies like any other MeshCore node.
-  This half was never reported, because from the outside it looks like nobody is there. Found while
-  investigating the above (#51, reported by @Murphy15b).
+  Fixing the button was only half of it: the replies come back as control packets too, and nothing in MCLite
+  handled those either, so the request would have gone out and every answer would have been dropped on the way
+  back in. Both directions are implemented, so the results actually reach the app (#51, reported by
+  @Murphy15b).
 - **Rejected companion commands are named in the log.** An unsupported command produced a generic error at the
   app and nothing at all on the device, so there was no way to tell which one it was. The serial log now says.
 

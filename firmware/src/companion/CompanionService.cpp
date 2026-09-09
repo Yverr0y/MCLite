@@ -357,7 +357,10 @@ void CompanionService::onControlData(const uint8_t* data, uint8_t len,
                                      int8_t snrQ4, int8_t rssi, uint8_t pathLen) {
     if (!clientConnected()) return;
     int n = len;
-    if (n > MAX_FRAME_SIZE - 4) n = MAX_FRAME_SIZE - 4;   // clamp; frame is [code][snr][rssi][path]+payload
+    // This clamp is reachable, not defensive: a packet payload runs to 184 bytes
+    // while a companion frame holds 172, so a large control payload genuinely has
+    // to be cut. Header is [code][snr][rssi][path_len].
+    if (n > MAX_FRAME_SIZE - 4) n = MAX_FRAME_SIZE - 4;
     _out[0] = PUSH_CODE_CONTROL_DATA;
     _out[1] = (uint8_t)snrQ4;
     _out[2] = (uint8_t)rssi;
