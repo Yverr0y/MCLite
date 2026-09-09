@@ -111,6 +111,7 @@ void CompanionService::handleFrame(size_t len) {
         case CMD_SEND_TXT_MSG:     cmdSendTxtMsg(len);      break;
         case CMD_SEND_CHANNEL_TXT_MSG: cmdSendChannelTxtMsg(len); break;
         case CMD_SEND_TELEMETRY_REQ: cmdSendTelemetryReq(len); break;
+        case CMD_SEND_CONTROL_DATA:  cmdSendControlData(len);  break;
         case CMD_SEND_ANON_REQ:      cmdSendAnonReq(len);      break;
         case CMD_SEND_STATUS_REQ:    cmdSendStatusReq(len);    break;
         case CMD_SEND_TRACE_PATH:    cmdSendTracePath(len);    break;
@@ -144,7 +145,13 @@ void CompanionService::handleFrame(size_t len) {
         case CMD_HAS_CONNECTION:   writeErr(ERR_CODE_NOT_FOUND); break;
         // Everything else — including all config/radio/contact/channel/key WRITE
         // commands — is refused (messaging + read-only scope).
-        default:                   writeErr(ERR_CODE_UNSUPPORTED_CMD); break;
+        default:
+            // Name the opcode. The app renders a generic "Unsupported Command --
+            // please update your companion firmware", so without this line neither
+            // we nor the user can tell which command it actually was.
+            LOGF("[Companion] unsupported cmd %u (len %u)\n", (unsigned)_cmd[0], (unsigned)len);
+            writeErr(ERR_CODE_UNSUPPORTED_CMD);
+            break;
     }
 }
 
@@ -333,6 +340,32 @@ void CompanionService::cmdSendTelemetryReq(size_t len) {
 // MeshManager forwards a contact's telemetry reply here -> PUSH_CODE_TELEMETRY_RESPONSE.
 // Direct push (like onAckConfirmed), carrying the verbatim CayenneLPP for the app to
 // parse. Layout: [0]=0x8B [1]=reserved(0) [2..7]=6-byte pubkey prefix [8..]=raw LPP.
+void CompanionService::cmdSendControlData(size_t len) {
+    // The app's "Discover Nodes / Discover Repeaters". Mirrors the reference
+    // firmware's guard exactly: at least one flag byte, and the high bit set --
+    // MeshCore only accepts that subset zero-hop, so anything else would be
+    // transmitted and then dropped by every receiver.
+    if (len < 2 || (_cmd[1] & 0x80) == 0) { writeErr(ERR_CODE_ILLEGAL_ARG); return; }
+
+    // Transmit-only and stores nothing, so it needs no permission gate -- same
+    // reasoning as CMD_SEND_SELF_ADVERT.
+    if (MeshManager::instance().sendControlData(&_cmd[1], len - 1)) writeOK();
+    else                                                            writeErr(ERR_CODE_BAD_STATE);
+}
+
+void CompanionService::onControlData(const uint8_t* data, uint8_t len,
+                                     int8_t snrQ4, int8_t rssi, uint8_t pathLen) {
+    if (!clientConnected()) return;
+    int n = len;
+    if (n > MAX_FRAME_SIZE - 4) n = MAX_FRAME_SIZE - 4;   // clamp; frame is [code][snr][rssi][path]+payload
+    _out[0] = PUSH_CODE_CONTROL_DATA;
+    _out[1] = (uint8_t)snrQ4;
+    _out[2] = (uint8_t)rssi;
+    _out[3] = pathLen;
+    if (n > 0 && data) memcpy(&_out[4], data, n);
+    _iface->writeFrame(_out, 4 + (n > 0 ? n : 0));
+}
+
 void CompanionService::onTelemetryResponse(const uint8_t* pubKey, const uint8_t* lpp, uint8_t lppLen) {
     if (!clientConnected() || !pubKey) return;
     int n = lppLen;

@@ -43,6 +43,11 @@ using MeshTelemetryCb = std::function<void(const ContactInfo& contact, const Tel
 // Raw CayenneLPP payload of a telemetry reply (pubKey is 32 B). Used by the
 // companion app, which forwards the verbatim LPP to the phone for it to parse.
 using MeshTelemetryRawCb = std::function<void(const uint8_t* pubKey, const uint8_t* lpp, uint8_t lppLen)>;
+// A zero-hop control/discovery packet was heard (PAYLOAD_TYPE_CONTROL). Carries the
+// raw payload plus the link quality it arrived with, which is the whole point of a
+// discovery reply: how well can I hear this node.
+using MeshControlDataCb = std::function<void(const uint8_t* data, uint8_t len,
+                                             int8_t snrQ4, int8_t rssi, uint8_t pathLen)>;
 using MeshTelemetryRetryCb = std::function<void(uint32_t newTimeoutMs)>;
 // Raw reply to an anonymous request (CMD_SEND_ANON_REQ). Carries the request tag
 // (so the app matches it to RESP_CODE_SENT) and the verbatim response payload.
@@ -109,6 +114,14 @@ public:
     // app's "local advert" option.
     bool advertise(const char* name, bool flood = true);
 
+    // Send a zero-hop control/discovery packet on behalf of a companion app
+    // (CMD_SEND_CONTROL_DATA). This is what the official app's "Discover Nodes"
+    // does: nodes in direct range answer, and their replies come back through
+    // onControlData(). Transmit-only, changes no stored state -- same scope
+    // reasoning as the self-advert command. Returns false if the packet pool is
+    // empty. Zero-hop only: MeshCore itself refuses to route these further.
+    bool sendControlData(const uint8_t* data, size_t len);
+
     // Region/flood-scope helpers for the companion. deriveScopeKey computes the same
     // transport key MCLite uses for a scope string (SHA256("#name")[:16]; "*"/"" => null),
     // so the app's name+key can be verified/answered. setGlobalScope overrides the live
@@ -153,6 +166,7 @@ public:
     void onAdvert(MeshAdvertCb cb)     { _onAdvert = cb; }
     void onTelemetry(MeshTelemetryCb cb) { _onTelemetry = cb; }
     void onTelemetryRaw(MeshTelemetryRawCb cb) { _onTelemetryRaw = cb; }
+    void onControlData(MeshControlDataCb cb) { _onControlData = cb; }
     void onTelemetryRetry(MeshTelemetryRetryCb cb) { _onTelemetryRetry = cb; }
     void onAnonResponse(MeshAnonRespCb cb) { _onAnonResponse = cb; }
     void onScopeList(MeshScopeListCb cb) { _onScopeList = cb; }
@@ -240,6 +254,13 @@ public:
     void deleteAdvertBlob(const uint8_t* pubKey);
 
 protected:
+    // A zero-hop control/discovery packet arrived. The base class ignores these
+    // entirely (Mesh::onControlDataRecv is an empty virtual), which meant an
+    // MCLite node stayed silent when anyone ran "Discover Nodes" nearby. Forward
+    // it to whoever is listening -- in practice the companion, which relays it to
+    // the app exactly as the reference firmware does.
+    void onControlDataRecv(mesh::Packet* packet) override;
+
     // ---- Required BaseChatMesh overrides ----
 
     // Capture the raw advert blob for every heard node (not just existing
@@ -372,6 +393,7 @@ private:
     MeshAdvertCb    _onAdvert;
     MeshTelemetryCb _onTelemetry;
     MeshTelemetryRawCb _onTelemetryRaw;
+    MeshControlDataCb  _onControlData;
     MeshTelemetryRetryCb _onTelemetryRetry;
     MeshAnonRespCb  _onAnonResponse;
     MeshScopeListCb _onScopeList;

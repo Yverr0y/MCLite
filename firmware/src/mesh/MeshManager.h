@@ -28,6 +28,8 @@ using OnFailCallback     = std::function<void(uint32_t packetId)>;
 using OnAdvertCallback     = std::function<void(const uint8_t* senderKey)>;
 using OnTelemetryCallback  = std::function<void(const uint8_t* pubKey, const TelemetryData& data)>;
 using OnTelemetryRawCallback = std::function<void(const uint8_t* pubKey, const uint8_t* lpp, uint8_t lppLen)>;
+using OnControlDataCallback = std::function<void(const uint8_t* data, uint8_t len,
+                                                 int8_t snrQ4, int8_t rssi, uint8_t pathLen)>;
 using OnTelemetryRetryCallback = std::function<void(uint32_t newTimeoutMs)>;
 using OnAnonResponseCallback = std::function<void(uint32_t tag, const uint8_t* data, uint8_t len)>;
 using OnScopeListCallback = std::function<void(const std::vector<String>& scopes)>;
@@ -73,6 +75,11 @@ public:
     void onAdvert(OnAdvertCallback cb)        { _onAdvert = cb; }
     void onTelemetry(OnTelemetryCallback cb)  { _onTelemetry = cb; }
     void onTelemetryRaw(OnTelemetryRawCallback cb) { _onTelemetryRaw = cb; }
+    void onControlData(OnControlDataCallback cb) { _onControlData = cb; }
+
+    // Companion "Discover Nodes": emit a zero-hop control/discovery packet.
+    // False if the radio isn't up or the packet pool is empty.
+    bool sendControlData(const uint8_t* data, size_t len);
     void onTelemetryRetry(OnTelemetryRetryCallback cb) { _onTelemetryRetry = cb; }
     void onAnonResponse(OnAnonResponseCallback cb) { _onAnonResponse = cb; }
     void onScopeList(OnScopeListCallback cb) { _onScopeList = cb; }
@@ -179,6 +186,7 @@ private:
     OnAdvertCallback    _onAdvert;
     OnTelemetryCallback _onTelemetry;
     OnTelemetryRawCallback _onTelemetryRaw;
+    OnControlDataCallback  _onControlData;
     OnTelemetryRetryCallback _onTelemetryRetry;
     OnAnonResponseCallback _onAnonResponse;
     OnScopeListCallback _onScopeList;

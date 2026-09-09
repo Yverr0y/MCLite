@@ -91,6 +91,10 @@ enum : uint8_t {
     CMD_SET_DEVICE_PIN         = 37,  // [1..4]=u32 PIN (0 or 100000-999999; 0 = regenerate)
     CMD_SET_PATH_HASH_MODE     = 61,  // [1]=0 (reserved) [2]=mode (0/1/2 -> 1/2/3 bytes per hop)
     CMD_SET_FLOOD_SCOPE_KEY    = 54,  // [1]=0 [2..17]=16-byte key (absent=null); [1]=1 = explicit un-scoped (ver12+); session-only
+    // The app's "Discover Nodes / Discover Repeaters". [1] carries flags with the
+    // high bit set; the rest is opaque payload we pass straight through. Sends a
+    // zero-hop PAYLOAD_TYPE_CONTROL packet; answers arrive as PUSH_CODE_CONTROL_DATA.
+    CMD_SEND_CONTROL_DATA      = 55,
     CMD_SET_DEFAULT_FLOOD_SCOPE = 63, // [1..31]=name [32..47]=16-byte key (len==1 = clear); persistent region
     CMD_GET_DEFAULT_FLOOD_SCOPE = 64, // -> RESP_CODE_DEFAULT_FLOOD_SCOPE
     CMD_RESET_PATH             = 13,  // [1..32]=contact pubkey; reset its learned path (flood rediscover)
@@ -132,6 +136,7 @@ enum : uint8_t {
     PUSH_CODE_TRACE_DATA       = 0x89,  // reply to CMD_SEND_TRACE_PATH: [1]=0 [2]=path_len [3]=flags [4..7]=tag [8..11]=auth [12..]=hashes+snrs+final
     PUSH_CODE_TELEMETRY_RESPONSE = 0x8B,  // [1]=reserved [2..7]=pubkey prefix [8..]=raw LPP
     PUSH_CODE_BINARY_RESPONSE  = 0x8C,  // reply to CMD_SEND_ANON_REQ: [1]=reserved [2..5]=tag [6..]=response payload
+    PUSH_CODE_CONTROL_DATA     = 0x8E,  // a heard control/discovery packet: [1]=SNR*4 [2]=RSSI [3]=path_len [4..]=payload
 };
 
 // ---- Error codes (second byte after RESP_CODE_ERR) ----

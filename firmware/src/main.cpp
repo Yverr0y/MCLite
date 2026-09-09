@@ -401,6 +401,14 @@ static void setupMeshCallbacks() {
         CompanionService::instance().onTelemetryResponse(pubKey, lpp, lppLen);
     });
 
+    // Forward a heard control/discovery packet to the companion app
+    // (PUSH_CODE_CONTROL_DATA) — this is what makes an MCLite node visible to
+    // someone else running "Discover Nodes" nearby.
+    mesh.onControlData([](const uint8_t* data, uint8_t len, int8_t snrQ4,
+                          int8_t rssi, uint8_t pathLen) {
+        CompanionService::instance().onControlData(data, len, snrQ4, rssi, pathLen);
+    });
+
     // Forward an anonymous-request reply to the companion app (PUSH_CODE_BINARY_RESPONSE).
     mesh.onAnonResponse([](uint32_t tag, const uint8_t* data, uint8_t len) {
         CompanionService::instance().onAnonResponse(tag, data, len);

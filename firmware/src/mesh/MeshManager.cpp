@@ -150,6 +150,11 @@ void MeshManager::wireCallbacks() {
     });
 
     // Telemetry response, raw CayenneLPP (companion app forwards it verbatim)
+    _mesh->onControlData([this](const uint8_t* data, uint8_t len, int8_t snrQ4,
+                                int8_t rssi, uint8_t pathLen) {
+        if (_onControlData) _onControlData(data, len, snrQ4, rssi, pathLen);
+    });
+
     _mesh->onTelemetryRaw([this](const uint8_t* pubKey, const uint8_t* lpp, uint8_t lppLen) {
         if (_onTelemetryRaw) _onTelemetryRaw(pubKey, lpp, lppLen);
     });
@@ -457,6 +462,11 @@ bool MeshManager::resetPathByKey(const uint8_t* pubKey) {
     if (!ci) return false;
     _mesh->resetPathTo(*ci);
     return true;
+}
+
+bool MeshManager::sendControlData(const uint8_t* data, size_t len) {
+    if (!_mesh || !_radioReady) return false;
+    return _mesh->sendControlData(data, len);
 }
 
 bool MeshManager::sendAdvertNow(bool flood) {

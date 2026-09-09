@@ -334,6 +334,32 @@ void MCLiteMesh::loop() {
         if (_repeats[i].used && (int32_t)(nowMs - _repeats[i].expiryMs) >= 0) _repeats[i].used = false;
 }
 
+bool MCLiteMesh::sendControlData(const uint8_t* data, size_t len) {
+    if (!_ready || !data || len == 0) return false;
+    mesh::Packet* pkt = createControlData(data, len);
+    if (!pkt) {
+        // Pool exhaustion is the only realistic failure; say so rather than
+        // reporting a generic error the app would blame on the command.
+        LOGLN("[Mesh] control data: packet pool empty");
+        return false;
+    }
+    // Zero-hop by design: Mesh::onRecvPacket only accepts these direct and with
+    // no path hashes, so flooding one would just be dropped by every receiver.
+    sendZeroHop(pkt);
+    return true;
+}
+
+void MCLiteMesh::onControlDataRecv(mesh::Packet* packet) {
+    if (!packet || !_onControlData) return;
+    // SNR is already quarter-dB in the packet header; the companion frame wants
+    // the same encoding, so pass the raw stored value rather than re-scaling
+    // getSNR()'s float back up.
+    _onControlData(packet->payload, packet->payload_len,
+                   (int8_t)(packet->getSNR() * 4),
+                   (int8_t)(_radio ? _radio->getLastRSSI() : 0),
+                   packet->path_len);
+}
+
 bool MCLiteMesh::advertise(const char* name, bool flood) {
     if (!_ready) return false;
 

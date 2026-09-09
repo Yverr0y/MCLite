@@ -71,6 +71,8 @@ public:
     // the client gets PUSH_CODE_TELEMETRY_RESPONSE with the raw LPP payload (the
     // app parses it). Direct push; no-op when no client is connected. pubKey is 32 B.
     void onTelemetryResponse(const uint8_t* pubKey, const uint8_t* lpp, uint8_t lppLen);
+    // A control/discovery packet was heard — push it to the app (PUSH_CODE_CONTROL_DATA).
+    void onControlData(const uint8_t* data, uint8_t len, int8_t snrQ4, int8_t rssi, uint8_t pathLen);
 
     // Anon-request bridge: MeshManager forwards a CMD_SEND_ANON_REQ reply here. The
     // client gets PUSH_CODE_BINARY_RESPONSE keyed by the request tag (it matched the
@@ -113,6 +115,7 @@ private:
     void cmdSendTxtMsg(size_t len);
     void cmdSendChannelTxtMsg(size_t len);
     void cmdSendTelemetryReq(size_t len);   // request telemetry from a contact (over the mesh)
+    void cmdSendControlData(size_t len);    // app's "Discover Nodes": zero-hop control packet
     void cmdSendAnonReq(size_t len);        // anonymous request to a node by pubkey (over the mesh)
     void cmdSendStatusReq(size_t len);      // status request to a known contact (over the mesh)
     void cmdSendTracePath(size_t len);      // trace a path and report per-hop SNR
